@@ -81,7 +81,7 @@ class ZoneGeoProcessor:
             F.count(F.when(F.col("event_type") == "message", 1)).alias("month_message"),
             F.count(F.when(F.col("event_type") == "reaction", 1)).alias("month_reaction"),
             F.count(F.when(F.col("event_type") == "subscription", 1)).alias("month_subscription"),
-            F.count(F.when(F.col("is_registration") == True, 1)).alias("month_user")
+            F.count(F.when(F.col("is_registration"), 1)).alias("month_user")
         )
 
         result = week_agg.join(month_agg, ["month", "zone_id"], "left")
