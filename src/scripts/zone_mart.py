@@ -53,42 +53,47 @@ class ZoneGeoProcessor:
     def build_zone_mart(self, df_events):
         """Построение витрины в разрезе географических зон"""
         logger.info("Начало построения витрины в разрезе зон...")
-        
+
         df_prepared = self._prepare_coordinates_for_enrichment(df_events)
         df_enriched = self.user_processor.enrich_events_with_city(df_prepared)
-        
+
+        # Определяем "регистрации" — это первое событие каждого пользователя
+        w_first = Window.partitionBy("user_id").orderBy(F.col("datetime").asc())
+
         df_base = df_enriched \
             .withColumn("zone_id", F.col("city_name")) \
             .withColumn("event_date", F.to_date("datetime")) \
             .withColumn("month", F.date_trunc("month", "event_date")) \
-            .withColumn("week", F.date_trunc("week", "event_date"))
-        
+            .withColumn("week", F.date_trunc("week", "event_date")) \
+            .withColumn("rn_first", F.row_number().over(w_first)) \
+            .withColumn("is_registration", F.col("rn_first") == 1)
+
         logger.info("Вычисление недельных агрегатов...")
         week_agg = df_base.groupBy("month", "week", "zone_id").agg(
             F.count(F.when(F.col("event_type") == "message", 1)).alias("week_message"),
             F.count(F.when(F.col("event_type") == "reaction", 1)).alias("week_reaction"),
             F.count(F.when(F.col("event_type") == "subscription", 1)).alias("week_subscription"),
-            F.count(F.when(F.col("event_type") == "registration", 1)).alias("week_user")
+            F.count(F.when(F.col("is_registration"), 1)).alias("week_user")
         )
-        
+
         logger.info("Вычисление месячных агрегатов...")
         month_agg = df_base.groupBy("month", "zone_id").agg(
             F.count(F.when(F.col("event_type") == "message", 1)).alias("month_message"),
             F.count(F.when(F.col("event_type") == "reaction", 1)).alias("month_reaction"),
             F.count(F.when(F.col("event_type") == "subscription", 1)).alias("month_subscription"),
-            F.count(F.when(F.col("event_type") == "registration", 1)).alias("month_user")
+            F.count(F.when(F.col("is_registration") == True, 1)).alias("month_user")
         )
-        
+
         result = week_agg.join(month_agg, ["month", "zone_id"], "left")
-        
+
         numeric_cols = [
             "week_message", "week_reaction", "week_subscription", "week_user",
             "month_message", "month_reaction", "month_subscription", "month_user"
         ]
-        
+
         for col_name in numeric_cols:
             result = result.withColumn(col_name, F.coalesce(F.col(col_name), F.lit(0)))
-            
+
         logger.info("Построение витрины в разрезе зон завершено.")
         return result
 
