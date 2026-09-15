@@ -5,6 +5,7 @@ from pyspark.sql.window import Window
 from pyspark.sql import SparkSession
 
 from user_mart import UserGeoProcessor
+from config import EVENTS_PATH, CITIES_PATH, USER_MART_PATH
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -106,10 +107,6 @@ if __name__ == "__main__":
     spark = SparkSession.builder \
         .appName("ZoneGeoMartBuilder") \
         .getOrCreate()
-
-    EVENTS_PATH = "/user/master/data/geo/events"
-    CITIES_PATH = "/user/s26546941/data/geo/geo.csv"
-    OUTPUT_PATH = "/user/s26546941/data/marts/zone_geo_mart"
 
     try:
         logger.info(f"Чтение данных из {EVENTS_PATH} (sample={args.sample})...")
