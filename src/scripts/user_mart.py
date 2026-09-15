@@ -3,6 +3,7 @@ import argparse
 import pyspark.sql.functions as F
 from pyspark.sql.window import Window
 from pyspark.sql import SparkSession
+from config import EVENTS_PATH, CITIES_PATH, USER_MART_PATH
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -77,13 +78,13 @@ class UserGeoProcessor:
             .select("user_id", F.col("city_name").alias("act_city"), F.col("city_timezone").alias("timezone"))
 
         # 2. Домашний город — последнее непрерывное посещение длительностью >= 27 дней
-        # Шаг 2.1: Уникальные дни активности в городе
+        # Уникальные дни активности в городе
         df_daily = df_enriched \
             .withColumn("event_date", F.to_date("datetime")) \
             .select("user_id", "city_name", "event_date") \
             .distinct()
 
-        # Шаг 2.2: Определяем моменты смены города
+        # Определяем моменты смены города
         w_user_date = Window.partitionBy("user_id").orderBy("event_date")
         df_with_prev = df_daily \
             .withColumn("prev_city", F.lag("city_name").over(w_user_date)) \
@@ -92,14 +93,14 @@ class UserGeoProcessor:
                 (F.col("prev_city").isNull()) | (F.col("city_name") != F.col("prev_city"))
             )
 
-        # Шаг 2.3: Нумеруем группы непрерывного присутствия
+        # Нумеруем группы непрерывного присутствия
         df_with_group = df_with_prev \
             .withColumn(
                 "group_id",
                 F.sum(F.when(F.col("city_changed"), 1).otherwise(0)).over(w_user_date)
             )
 
-        # Шаг 2.4: Для каждой группы считаем длительность посещения
+        # Для каждой группы считаем длительность посещения
         df_groups = df_with_group \
             .groupBy("user_id", "city_name", "group_id") \
             .agg(
@@ -108,7 +109,7 @@ class UserGeoProcessor:
                 (F.datediff(F.max("event_date"), F.min("event_date")) + 1).alias("duration_days")
             )
 
-        # Шаг 2.5: Последнее посещение длительностью >= 27 дней = домашний город
+        # Последнее посещение длительностью >= 27 дней = домашний город
         w_last_visit = Window.partitionBy("user_id").orderBy(F.col("end_date").desc())
         df_home = df_groups \
             .filter(F.col("duration_days") >= 27) \
@@ -133,7 +134,7 @@ class UserGeoProcessor:
             .withColumn("local_time", F.from_utc_timestamp(F.col("datetime"), F.col("city_timezone"))) \
             .select("user_id", "local_time")
 
-        # 5. Сборка итоговой витрины с явным select нужных полей
+        # 5. Сборка итоговой витрины
         result = df_act \
             .join(df_home, "user_id", "left") \
             .join(df_travel, "user_id", "left") \
@@ -162,10 +163,6 @@ if __name__ == "__main__":
     spark = SparkSession.builder \
         .appName("UserGeoMartBuilder") \
         .getOrCreate()
-
-    EVENTS_PATH = "/user/master/data/geo/events"
-    CITIES_PATH = "/user/s26546941/data/geo/geo.csv"
-    OUTPUT_PATH = "/user/s26546941/data/marts/user_geo_mart"
 
     try:
         logger.info(f"Чтение данных из {EVENTS_PATH} (sample={args.sample})...")
