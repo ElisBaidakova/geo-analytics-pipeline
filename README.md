@@ -174,6 +174,7 @@ build_user_mart
 │   └── friend_rec_mart.py
 │
 └── README.md
+|__ config.py
 ```
 
 ## Что реализовано
