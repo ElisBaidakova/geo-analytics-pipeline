@@ -21,7 +21,7 @@ class FriendRecProcessor:
         """Построение витрины для рекомендации друзей"""
         logger.info("Начало построения витрины рекомендаций друзей...")
 
-        # Шаг 1: Находим пары пользователей, подписанных на один и тот же канал
+        # Находим пары пользователей, подписанных на один и тот же канал
         logger.info("Поиск пар пользователей в общих каналах...")
         
         # Для подписок используем subscription_user и subscription_channel
@@ -40,7 +40,7 @@ class FriendRecProcessor:
             F.col("s2.user_id").alias("user_right")
         ).distinct()
 
-        # Шаг 2: Обеспечиваем уникальность пар
+        # Обеспечиваем уникальность пар
         df_unique_pairs = df_pairs.withColumn(
             "pair_id",
             F.when(F.col("user_left") < F.col("user_right"),
@@ -48,7 +48,7 @@ class FriendRecProcessor:
              .otherwise(F.concat_ws("-", "user_right", "user_left"))
         ).dropDuplicates(["pair_id"]).drop("pair_id")
 
-        # Шаг 3: Исключаем пары, которые уже переписывались
+        # Исключаем пары, которые уже переписывались
         logger.info("Фильтрация пар, которые уже переписывались...")
         
         # Для сообщений используем message_from и message_to (приводим к string)
@@ -68,7 +68,7 @@ class FriendRecProcessor:
             "left_anti"
         ).drop("u1", "u2")
         
-        # Шаг 4: Фильтр по расстоянию <= 1 км
+        # Фильтр по расстоянию <= 1 км
         logger.info("Вычисление расстояния между пользователями...")
         w_last = Window.partitionBy("user_id").orderBy(F.col("datetime").desc())
 
@@ -107,7 +107,7 @@ class FriendRecProcessor:
             ) \
             .filter(F.col("dist") <= 1.0)
 
-        # Шаг 5: Добавление метаданных витрины
+        # Добавление метаданных в витрины
         logger.info("Формирование финальных атрибутов витрины...")
         result = df_with_dist \
             .withColumn("processed_dttm", F.current_timestamp()) \
