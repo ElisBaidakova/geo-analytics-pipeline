@@ -98,17 +98,7 @@ Apache Airflow используется для управления послед
 
 ## Технологии
 
-* Python
-* PySpark
-* Apache Spark
-* Apache Airflow
-* SparkSubmitOperator
-* Parquet
-* SQL-like transformations в PySpark
-* Window Functions
-* Haversine formula
-* Airflow DAG
-
+`Python` `Apache Spark` `PySpark` `Apache Airflow` `HDFS` `Parquet` `SQL`
 
 ## Что реализовано
 
